@@ -1,0 +1,13 @@
+[Unit]
+Description=Russht Viewer fleet agent
+After=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=-%h/.config/russhtviewer/masterdale.env
+ExecStart=%h/.local/bin/russhtviewer agent --host ${RUSSH_FLEET_HOST}
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

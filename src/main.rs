@@ -98,7 +98,7 @@ fn parse_ssh_config(text: &str) -> Vec<Device> {
     let mut devices: Vec<Device> = Vec::new();
     let mut block: Vec<String> = Vec::new();
     let mut git = false;
-    let mut flush = |block: &mut Vec<String>, git: bool, devices: &mut Vec<Device>| {
+    let flush = |block: &mut Vec<String>, git: bool, devices: &mut Vec<Device>| {
         for name in block.drain(..) {
             if !git && !devices.iter().any(|device| device.name == name) {
                 devices.push(Device {

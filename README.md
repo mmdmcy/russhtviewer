@@ -31,7 +31,8 @@ russhtviewer devices [--json]  # list the devices it knows
 russhtviewer connect DEVICE    # one device's shell here, without the viewer
 ```
 
-In the sidebar: click a device, or press 1-9; `r` checks reachability
+In the sidebar: click a device, or press 1-9; `d` opens the current
+device's desktop in your browser (`lmice desktop`, RustOp Viewer); `r` checks reachability
 again (it also does so every minute); `q` closes the viewer. Every other
 key goes to the shell on the right, so a tmux or Mobailmux on the remote
 device keeps its own Ctrl-b.

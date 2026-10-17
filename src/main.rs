@@ -270,6 +270,19 @@ fn select(device: &str) -> i32 {
     0
 }
 
+/// Opens `device`'s desktop in the browser (`lmice desktop`) on the right.
+fn desktop(device: &str) -> i32 {
+    let view = option("@russh_view");
+    if view.is_empty() || !plain(device) {
+        return 1;
+    }
+    let lmice = lmice().unwrap_or_else(|| "lmice".to_string());
+    let command = format!("{} desktop {}", quote(&lmice), quote(device));
+    let _ = tmux(&["respawn-pane", "-k", "-t", &view, &command]);
+    let _ = tmux(&["select-pane", "-t", &view]);
+    0
+}
+
 /// A shell on `device` in this terminal; says so when it ends.
 fn connect(device: &str, in_viewer: bool) -> i32 {
     if !plain(device) {
@@ -299,7 +312,7 @@ fn connect(device: &str, in_viewer: bool) -> i32 {
 
 fn welcome() -> i32 {
     println!(
-        "\n  Russht Viewer\n\n  Click a device on the left to open a shell there.\n  Sessions keep running on each device: click to switch back.\n\n  In the sidebar: 1-9 pick, r refresh, q quit."
+        "\n  Russht Viewer\n\n  Click a device on the left to open a shell there.\n  Sessions keep running on each device: click to switch back.\n\n  In the sidebar: 1-9 pick, d desktop in the browser, r refresh, q quit."
     );
     let _ = std::io::stdin().read(&mut [0u8; 1]);
     0
@@ -359,7 +372,7 @@ fn render(list: &[Device], current: &str, loading: bool) {
             out.push_str(&format!(" {dot} {name}\r\n"));
         }
     }
-    out.push_str("\r\n\x1b[2m 1-9 pick r refresh q quit\x1b[0m");
+    out.push_str("\r\n\x1b[2m 1-9 pick  d desktop\r\n r refresh  q quit\x1b[0m");
     let mut stdout = std::io::stdout();
     let _ = stdout.write_all(out.as_bytes());
     let _ = stdout.flush();
@@ -410,6 +423,12 @@ fn sidebar() -> i32 {
                 return 0;
             }
             Ok(b'r') => stale = true,
+            Ok(b'd') => {
+                let current = option("@russh_current");
+                if source == Source::Lmice && plain(&current) && current != "here" {
+                    desktop(&current);
+                }
+            }
             Ok(digit @ b'1'..=b'9') => {
                 if let Some(device) = list.get(usize::from(digit - b'1')) {
                     select(&device.name);

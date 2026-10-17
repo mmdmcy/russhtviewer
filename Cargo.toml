@@ -1,6 +1,6 @@
 [package]
 name = "russhtviewer"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2024"
 rust-version = "1.85"
 description = "Russht Viewer: click between shells on your own devices. A tmux sidebar over plain SSH; no agent, token or open port."

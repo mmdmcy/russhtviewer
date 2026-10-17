@@ -1,58 +1,56 @@
 # Russht Viewer
 
-**Russht Viewer** (RUSSH) is a Rust tool for easy multi-device shell access on a private Tailscale fleet.
+Click between shells on your own devices.
 
-It is the shell sibling of [rustopviewer](https://github.com/mmdmcy/rustopviewer): one always-on host registry, agents on each machine, and a shared Masterdale bearer token instead of SSH keys.
+Russht Viewer opens a tmux window with your devices in a sidebar on the
+left and the shell of the one you picked on the right. Click another device
+and the right side switches to it. Sessions keep running on each device, so
+switching back is instant.
 
-## Surfaces
-
-- CLI / TUI device picker and multi-session terminals
-- Browser multi-tab terminals (xterm.js)
-- Headless host and agent daemons
-
-## Quick start
-
-Share the same token everywhere:
-
-```env
-DALE_TOKEN=<same-as-masterdale>
-# or RUSSH_MASTERDALE_TOKEN=...
+```
+┌ devices ─────────┬──────────────────────────────────────────┐
+│ ● here           │ admin@server:~$                          │
+│ ● server         │                                          │
+│ ○ old-laptop     │                                          │
+│ ● laptop-wsl     │                                          │
+└──────────────────┴──────────────────────────────────────────┘
 ```
 
-On the registry host:
+No agent, no token, no open port. It opens plain SSH:
+
+- through LinuxMice (`lmice open DEVICE`) when
+  `lmice` is installed: device names and reachability come from the fleet,
+  and LinuxMice handles keys, pinned host keys and jumps;
+- otherwise through the `Host` entries in `~/.ssh/config`.
+
+## Use
 
 ```bash
-russhtviewer host --headless
+russhtviewer                   # open the viewer; click a device
+russhtviewer devices [--json]  # list the devices it knows
+russhtviewer connect DEVICE    # one device's shell here, without the viewer
 ```
 
-On each other device:
+In the sidebar: click a device, or press 1-9; `r` checks reachability
+again (it also does so every minute); `q` closes the viewer. Every other
+key goes to the shell on the right, so a tmux or Mobailmux on the remote
+device keeps its own Ctrl-b.
+
+## Requirements
+
+tmux, and SSH access to your devices. Runs wherever tmux does: Linux,
+macOS, and WSL on Windows (no Windows build needed; Windows Terminal shows
+it fine).
+
+## Build
 
 ```bash
-russhtviewer agent --host http://<registry-tailscale-ip>:45090
+cargo build --release   # one binary, no dependencies
 ```
 
-From any device with the token:
-
-```bash
-russhtviewer                  # TUI: pick a device, open shells
-russhtviewer devices
-russhtviewer connect workstation
-```
-
-Browser: open `http://<registry-tailscale-ip>:45090/`, paste the Masterdale token, pick a device, open tabs.
-
-## Auth model
-
-- Fleet register / list / PTY require `Authorization: Bearer <token>`
-- Token is the same `DALE_TOKEN` used by Masterdale / RustOpViewer
-- Default network posture: listen on loopback + Tailscale IPs (not public WAN)
-
-## Non-goals (v1)
-
-- Real OpenSSH / SSH certificates
-- Relaying PTY bytes through the host (clients connect to the agent URL directly after discovery)
-- File transfer / clipboard
+Version 0.1 had its own agents, registry and shared bearer token; it is kept
+at the git tag `agent-era`. 0.2 replaced all of that with SSH.
 
 ## License
 
-MIT OR Apache-2.0
+MIT or Apache-2.0.

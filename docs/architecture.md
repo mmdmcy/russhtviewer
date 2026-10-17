@@ -1,28 +1,17 @@
 # Architecture
 
-## Roles
+One binary, the standard library only, three parts:
 
-- **Host** (`russhtviewer host`): fleet registry + local shell agent + browser dashboard
-- **Agent** (`russhtviewer agent --host URL`): local PTY server that registers/heartbeats to the host
-- **Client** (TUI / `connect` / browser): lists devices from the host, opens WebSocket PTY sessions on the chosen agent
+- **The viewer** (`russhtviewer`): a tmux session `russh` with two panes. Its
+  key table passes every key to the right pane; only mouse clicks on the
+  sidebar are handled, by running `russhtviewer __click ROW`.
+- **The sidebar** (`__sidebar`): lists `here` plus the devices, checks
+  reachability every minute, keeps the list in a tmux option for clicks,
+  and highlights the current device.
+- **The connection** (`__connect DEVICE`): `lmice open DEVICE`, or
+  `ssh -t DEVICE`, in the right pane; switching respawns that pane.
 
-## Protocol
-
-- `POST /v1/fleet/register`
-- `POST /v1/fleet/heartbeat`
-- `GET /v1/fleet/devices`
-- `GET /v1/device`
-- `WS /v1/pty` with `Authorization: Bearer <token>`
-
-PTY frames are JSON text messages:
-
-```json
-{"type":"input","data":"..."}
-{"type":"resize","cols":120,"rows":40}
-{"type":"output","data":"..."}
-{"type":"exit","code":0}
-```
-
-## Auth
-
-SHA-256 hashed bearer compared in constant time style via hash equality of the configured token.
+State lives in tmux session options (`@russh_view`, `@russh_list`,
+`@russh_current`); nothing is written to disk. Device names are checked
+(letters, digits, `-_.@`, never starting with `-`) before they reach a
+command line.

@@ -1,14 +1,12 @@
 # Security
 
-Russht Viewer grants interactive shell access to whoever holds the shared Masterdale bearer token.
+Russht Viewer adds no access of its own: it runs `ssh` (or `lmice open`,
+which runs ssh) with whatever keys and host-key checks you already have. It
+listens on nothing and stores no secret.
 
-## Rules
+- Device names from the fleet or `~/.ssh/config` are validated before use,
+  so a name can never become an ssh option.
+- Version 0.1 used a shared bearer token and agents with shells; if you ran
+  it, stop those agents and rotate that token.
 
-- Keep `DALE_TOKEN` / `RUSSH_MASTERDALE_TOKEN` private and rotate if leaked
-- Prefer Tailscale-only reachability; do not publish port 45090 to the public internet
-- Agents spawn the user shell in the home directory; treat the token like root SSH access for that user
-- Idle sessions should be closed when finished
-
-## Reporting
-
-Open a private security advisory on the GitHub repository if you find a vulnerability.
+Report a vulnerability through a private security advisory on GitHub.

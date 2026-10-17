@@ -37,14 +37,26 @@ enum Source {
     SshConfig,
 }
 
+/// `lmice` on the PATH, or in `~/.local/bin` (where it is installed, and
+/// which non-login shells often leave off the PATH).
+fn lmice() -> Option<String> {
+    let works = |program: &str| {
+        Command::new(program)
+            .arg("--version")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .is_ok_and(|status| status.success())
+    };
+    if works("lmice") {
+        return Some("lmice".to_string());
+    }
+    let local = format!("{}/.local/bin/lmice", std::env::var("HOME").ok()?);
+    works(&local).then_some(local)
+}
+
 fn source() -> Source {
-    let lmice = Command::new("lmice")
-        .arg("--version")
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .is_ok_and(|status| status.success());
-    if lmice { Source::Lmice } else { Source::SshConfig }
+    if lmice().is_some() { Source::Lmice } else { Source::SshConfig }
 }
 
 /// The string after `"key":` in a JSON object; enough for lmice's fleet
@@ -80,29 +92,42 @@ fn parse_fleet(json: &str) -> Vec<Device> {
         .collect()
 }
 
-/// `Host` names in an ssh config, without patterns.
+/// `Host` names in an ssh config, without patterns and without git
+/// remotes (hosts that log in as `git` are not shells).
 fn parse_ssh_config(text: &str) -> Vec<Device> {
     let mut devices: Vec<Device> = Vec::new();
-    for line in text.lines() {
-        let mut words = line.split_whitespace();
-        if !words.next().is_some_and(|word| word.eq_ignore_ascii_case("host")) {
-            continue;
-        }
-        for name in words {
-            if plain(name) && !devices.iter().any(|device| device.name == name) {
+    let mut block: Vec<String> = Vec::new();
+    let mut git = false;
+    let mut flush = |block: &mut Vec<String>, git: bool, devices: &mut Vec<Device>| {
+        for name in block.drain(..) {
+            if !git && !devices.iter().any(|device| device.name == name) {
                 devices.push(Device {
-                    name: name.to_string(),
+                    name,
                     state: "unknown".to_string(),
                 });
             }
         }
+    };
+    for line in text.lines() {
+        let mut words = line.split_whitespace();
+        let Some(key) = words.next() else { continue };
+        if key.eq_ignore_ascii_case("host") || key.eq_ignore_ascii_case("match") {
+            flush(&mut block, git, &mut devices);
+            git = false;
+            if key.eq_ignore_ascii_case("host") {
+                block = words.filter(|name| plain(name)).map(str::to_string).collect();
+            }
+        } else if key.eq_ignore_ascii_case("user") && words.next() == Some("git") {
+            git = true;
+        }
     }
+    flush(&mut block, git, &mut devices);
     devices
 }
 
 fn devices(source: Source) -> Vec<Device> {
     match source {
-        Source::Lmice => Command::new("lmice")
+        Source::Lmice => Command::new(lmice().unwrap_or_else(|| "lmice".to_string()))
             .args(["--format", "json", "fleet", "status"])
             .stderr(Stdio::null())
             .output()
@@ -255,7 +280,9 @@ fn connect(device: &str, in_viewer: bool) -> i32 {
         let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
         Command::new(shell).arg("-l").status()
     } else if source() == Source::Lmice {
-        Command::new("lmice").args(["open", device]).status()
+        Command::new(lmice().unwrap_or_else(|| "lmice".to_string()))
+            .args(["open", device])
+            .status()
     } else {
         Command::new("ssh").args(["-t", device]).status()
     };
@@ -472,7 +499,7 @@ mod tests {
 
     #[test]
     fn ssh_config_hosts_without_patterns() {
-        let text = "Host server\n  HostName 192.0.2.2\nHost *\n  ServerAliveInterval 30\nhost laptop desk\nHost server\nHostName x\n";
+        let text = "Host server\n  HostName 192.0.2.2\nHost *\n  ServerAliveInterval 30\nhost laptop desk\nHost server\nHostName x\nHost github.com\n  User git\n";
         let names = parse_ssh_config(text).into_iter().map(|d| d.name).collect::<Vec<_>>();
         assert_eq!(names, ["server", "laptop", "desk"]);
     }
